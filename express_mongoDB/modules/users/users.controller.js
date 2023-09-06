@@ -1,140 +1,99 @@
 import UserModel from "../../DB/models/UserModel.js";
 import bcrypt from 'bcryptjs';
 
-export const signUp = async (req, res) => {
-    try {
-        const {name, email, password, age} = req.body;
-        const user = await UserModel.findOne({email});
-        if (user) {
-            return res.json({message: 'User is already exist'})
-        } else {
-            const hashedPassword = bcrypt.hashSync(password, 8)
-            await UserModel.insertMany([{name, email, password: hashedPassword, age}]);
-            return res.json({message: 'Done!'})
-        }
-    } catch(err) {
-        res.json({message: 'Something went wrong!', err});
-    };
+export const signUp = async (req, res, next) => {
+    const {name, email, password, age} = req.body;
+    const existingUser = await UserModel.findOne({email});
+    if (existingUser) {
+        return res.status(409).json({message: 'User is already exist'})
+    }
+    const hashedPassword = bcrypt.hashSync(password, 8)
+    const user = await UserModel.create({name, email, password: hashedPassword, age});
+    return res.status(201).json({message: 'Done!', user})
 };
 
-export const signIn = async (req,res) => {
-    try {
-        const {email, password} = req.body;
-        const user = await UserModel.findOne({email});
-        console.log(user);
-        if (user) {
-            const matching = bcrypt.compareSync(password, user.password)
-            return matching ? res.json({message: 'logged In Successfully'}) : res.json({message: 'Cannot sign in'})
-        } else {
-            return res.json({message: 'user not found'})
-        }
-    } catch (err) {
-        return res.json({message: 'Something went wrong!', err});
+export const signIn = async (req ,res, next) => {
+    const {email, password} = req.body;
+    const user = await UserModel.findOne({email});
+    if (!user) {
+        return res.status(401).json({message: 'in-valid login credentials'})
+    } 
+    const isPasswordMatch = bcrypt.compareSync(password, user.password)
+    return isPasswordMatch ? 
+        res.json({message: 'logged In Successfully', user: {_id: user._id, email: user.email}}) 
+        : res.json({message: 'in-valid login credentials'})
+}
+
+export const updateUser = async (req, res, next) => {
+    const {_id} = req.body
+    if (req.body.password) {
+        let hashedPassword = bcrypt.hashSync(req.body.password, 8)
+        req.body.password = hashedPassword
     }
+    const user = await UserModel.findByIdAndUpdate(_id, req.body, {new: true}).select('-password')
+    if (!user) {
+        return res.status(404).json({message: 'User Not Found'})
+    }
+    return res.status(200).json({message: 'Updated Successfully!'})
 };
 
-export const updateUser = async (req, res) => {
-    try {
-        const {_id, name, email, age, password} = req.body;
-        await UserModel.findByIdAndUpdate(_id, {name, email, age, password}, (err, docs) => {
-            if (err) {
-                return res.json({message: 'Cannot Update User', err})
-            } else {
-                return res.json({message: 'Done !', docs})
-            }
-        })
-    } catch (err) {
-        res.json({message: 'Something went wrong!', err});
+export const deleteUser = async (req, res, next) => {
+    const {email} = req.body;
+    const deletedUser = await UserModel.findOneAndUpdate({email}, {new: true}).select("-password")
+    if (!deletedUser) {
+        return res.status(404).json({message: 'User Not Found'})
     }
-};
-
-export const deleteUser = async (req, res) => {
-    try {
-        const {email} = req.body;
-        await UserModel.deleteOne({email}, (err, docs) => {
-            if (err) {
-                return res.json({message: 'Cannot delete user', err})
-            } else {
-                return res.json({message: 'User has been deleted!', docs})
-            }
-        });
-    } catch (err) {
-        return res.json({message: 'Something went wrong!', err});
-    }
+    return res.status(200).json({message: 'deleted Successfully!', deletedUser})
 }
 
 export const getAllUsers = async (req, res) => {
-    try {
-        const users = await UserModel.find({}, {name: 1, age: 1, email: 1});
-        return res.json({message: 'All Users', users})
-    } catch (err) {
-        res.json({message: 'Something went wrong!', err});
-    }
+    const users = await UserModel.find({}, {name: 1, age: 1, email: 1}).populate('posts')
+    
+    return res.status(200).json({message: 'All Users', users})
 };
 
-export const getSpecialUserNameAndAge = async (req, res) => {
-    try {
-        const {x, y} = req.params;
-        const users = await UserModel.find({$or: [{age: {$lte: y}}, {name: `/^${x}`}]});
-        if (users.length) {
-            return res.json({message: 'Found', users})
-        } else {
-            return res.json({message: 'Not Found'})
-        }
-    } catch (err) {
-        res.json({message: 'Something went wrong!', err});
+export const getSpecialUserNameAndAge = async (req, res, next) => {
+    const {x, y} = req.params;
+    const users = await UserModel.find({$or: [{age: {$lte: y}}, {name: {$regex: new RegExp(`/^${x}/`)}}]});
+    if (users.length) {
+        return res.status(200).json({message: 'users', users})
     }
+    return res.status(404).json({message: 'Not Found'})
 }
 
-export const getUserNameEndsWith = async (req, res) => {
-    try {
-        const {x} = req.params;
-        const users = await UserModel.find({name: `/${x}$/`});
-        if (users.length) {
-            return res.json({message: 'Found', users})
-        } else {
-            return res.json({message: 'Not Found'})
-        }
-    } catch (err) {
-        res.json({message: 'All users have been deleted!'})
+export const getUserNameEndsWith = async (req, res, next) => {
+    const {x} = req.params;
+    const users = await UserModel.find({name: {$regex: new RegExp(`/${x}$/`)}});
+    if (users.length) {
+        return res.status(200).json({message: 'Found', users})
+    } else {
+        return res.status(404).json({message: 'Not Found'})
     }
 };
 
-export const getUserNameContains = async (req, res) => {
-    try {
-        const {x} = req.params;
-        const users = await UserModel.find({name: `/${x}/`});
-        if (users.length) {
-            return res.json({message: 'Found', users})
-        } else {
-            return res.json({message: 'Not Found'})
-        }
-    } catch (err) {
-        res.json({message: 'All users have been deleted!'})
+export const getUserNameContains = async (req, res, next) => {
+    const {x} = req.params;
+    const users = await UserModel.find({name: `/${x}/`});
+    if (users.length) {
+        return res.status(200).json({message: 'Found', users})
+    } else {
+        return res.status(404).json({message: 'Not Found'})
     }
 }
 
 export const findUserWithName = async (req, res) => {
-    try {
-        const {name} = req.body;
-        const users = await UserModel.find({name});
-        if (users.length) {
-            return res.json({message: 'Found', users})
-        } else {
-            return res.json({message: 'Not Found'})
-        }
-    } catch (err) {
-        res.json({message: 'All users have been deleted!'});
+    const {name} = req.body;
+    const users = await UserModel.find({name});
+    if (users.length) {
+        return res.status(200).json({message: 'Found', users})
+    } else {
+        return res.status(404).json({message: 'Not Found'})
     }
 };
 
 
-export const deleteAllUsers = async (req, res) => {
-    try {
-        await UserModel.deleteMany();
-        res.json({message: 'All users have been deleted!'})
-    } catch(err) {
-        console.log(err);
-    }
+export const deleteAllUsers = async (req, res, next) => {
+    await UserModel.deleteMany();
+    return res.status(200).json({message: 'All users have been deleted!'})
 };
 

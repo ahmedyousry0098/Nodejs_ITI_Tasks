@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 
-mongoose.set('strictQuery', false)
+mongoose.set('strictQuery', true)
 
 const DBConnection = async () => {
     return await mongoose.connect('mongodb://127.0.0.1/mongoDBassignment')
