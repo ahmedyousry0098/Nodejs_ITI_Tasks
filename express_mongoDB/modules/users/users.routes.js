@@ -11,18 +11,19 @@ import {
     findUserWithName, 
     deleteAllUsers  
 } from './users.controller.js';
+import {asyncHandler} from '../../utils/asyncHandler.js'
 
 const router = Router();
 
-router.post(`/registeruser`, signUp);
-router.post('/signin', signIn);
-router.post('/updateuser', updateUser);
-router.delete('/deleteuser', deleteUser);
-router.get('/getallusers', getAllUsers);
-router.get('/getSpecialUserNameAndAge/:x/:y', getSpecialUserNameAndAge);
-router.get('/getUserNameEndsWith/:x', getUserNameEndsWith);
-router.get('/getUserNameContains', getUserNameContains)
-router.get(`/getuserbyid`, findUserWithName);
-router.delete(`/deleteall`, deleteAllUsers);
+router.post(`/register`, asyncHandler(signUp));
+router.post('/signin', asyncHandler(signIn));
+router.put('/updateuser', asyncHandler(updateUser));
+router.delete('/deleteuser', asyncHandler(deleteUser));
+router.get('/getallusers', asyncHandler(getAllUsers));
+router.get('/getSpecialUserNameAndAge/:x/:y', asyncHandler(getSpecialUserNameAndAge));
+router.get('/getUserNameEndsWith/:x', asyncHandler(getUserNameEndsWith));
+router.get('/getUserNameContains', asyncHandler(getUserNameContains))
+router.get(`/getuserbyid`, asyncHandler(findUserWithName));
+router.delete(`/deleteall`, asyncHandler(deleteAllUsers));
 
 export default router;
